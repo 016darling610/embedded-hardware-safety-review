@@ -1,151 +1,185 @@
-# Embedded Hardware Safety Review 
+<p align="center">
+  <img src="https://img.shields.io/badge/Claude%20Code-Skill-8A2BE2?style=for-the-badge&logo=anthropic&logoColor=white">
+  <img src="https://img.shields.io/badge/Items-60-red?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Dimensions-20-blue?style=for-the-badge">
+  <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge">
+</p>
 
-> **一个为嵌入式 AI 代码生成的 60 项硬件安全审查技能。**
->
-> AI 写的代码语法正确，但物理上危险。LLM 不懂电流、电压、热量——它把 GPIO、PWM 定时器、PID 回路当作抽象文本来处理，毫无物理后果意识。
+<p align="center">
+  <img src="https://img.shields.io/badge/Platform-STM32-03234B?style=flat-square&logo=stmicroelectronics&logoColor=white">
+  <img src="https://img.shields.io/badge/Arch-Cortex%20M3%20%7C%20M4%20%7C%20M7-0091BD?style=flat-square&logo=arm&logoColor=white">
+  <img src="https://img.shields.io/badge/Motor-TB6612%20%7C%20DRV8833%20%7C%20L298N-FF6B00?style=flat-square">
+  <img src="https://img.shields.io/badge/IMU-MPU6050%20%7C%20ICM--20948-00BFFF?style=flat-square">
+  <img src="https://img.shields.io/badge/Language-C%20%7C%20C%2B%2B-555555?style=flat-square&logo=c&logoColor=white">
+</p>
 
-[![Skill Type](https://img.shields.io/badge/Claude%20Code-Skill-8A2BE2)](https://claude.ai/code)
-[![Items](https://img.shields.io/badge/Checklist-60%20items-red)](./SKILL.md)
-[![Dimensions](https://img.shields.io/badge/Dimensions-20-blue)](./SKILL.md)
-[![Lines](https://img.shields.io/badge/Size-5000%2B%20lines-lightgrey)](./SKILL.md)
-
----
-
-## 为什么需要这个 Skill？
-
-| AI 生成的代码 | 物理后果 |
-|-------------|---------|
-| `PWM_Frequency = 50Hz` | 电机啸叫+MOS 管烧毁 |
-| `GPIO_Mode_Out_PP` on encoder pin | IO 口烧毁/MCU 锁死 |
-| 无 PID 积分限幅 | 过冲→甩尾→撞墙 |
-| 无看门狗 | I2C 卡死→小车全速冲出去 |
-| `asin()` 输入无值域检查 | NaN→100% 占空比→撞墙 |
-| 无电池电压检测 | 低压→MCU 复位→GPIO 乱跳→倒车撞裁判 |
-| `HAL_Delay(100)` 被 AI 删除 | 外设未初始化完→全比赛随机数据 |
-
-**这个 Skill 在 AI 生成代码之后、上电之前，强制执行 60 项物理安全检查。**
+<p align="center">
+  <img src="https://img.shields.io/github/stars/016darling610/embedded-hardware-safety-review?style=social">
+  <img src="https://img.shields.io/github/forks/016darling610/embedded-hardware-safety-review?style=social">
+</p>
 
 ---
 
-## 快速概览
-
-| 维度 | 项目数 | 涵盖内容 |
-|------|--------|---------|
-| **D1: 硬件物理安全** | 5 | PWM 频率、占空比限幅、引脚模式、死区补偿、电池电压 |
-| **D2: 传感器与姿态算法** | 4 | Yaw 复位、积分饱和、传感器时间戳、编码器边沿 |
-| **D3: 逻辑流程与异常复位** | 4 | 看门狗、上电状态、中断优先级、NaN 异常 |
-| **D4: 预留** | 4 | 待扩展 |
-| **D5: 电源与电气完整性** | 3 | 反电动势、共地干扰/I2C、舵机堵转 |
-| **D6: 通信总线死锁** | 2 | I2C/SPI 卡死恢复、串口溢出保护 |
-| **D7: 控制策略与物理极限** | 2 | 平衡车倒车保护、速度-转向耦合 |
-| **D8: 数据与调试** | 2 | PID 掉电保存、非阻塞日志 |
-| **D9: 代码结构性陷阱** | 2 | volatile 声明、隐式类型转换 |
-| **D10: 运动学与运动平滑** | 2 | 麦轮符号验证、软启动/软停止 |
-| **D11: 传感器校准与环境漂移** | 2 | 陀螺零偏动态补偿、传感器置信度 |
-| **D12: 实时 CPU 与 DMA** | 2 | ISR 超时验证、DMA 缓存一致性 |
-| **D13: 无线控制与模式切换** | 2 | 心跳超时失能、PID 无冲击切换 |
-| **D14: 状态机与输入鲁棒性** | 2 | 状态机超时保护、按键消抖 |
-| **D15: 系统启动与调试完整性** | 4 | 栈溢出、HSE 晶振验证、上电延时还原、SWD 保护 |
-| **D16: 电池感知与运动解耦** | 4 | 电压前馈补偿、加速度俯仰解耦、打滑拒识、底盘模型验证 |
-| **D17: 多传感器融合与竞赛逻辑** | 3 | 视觉-IMU 时间对齐、起跑冲线防误判、路面摩擦自适应 |
-| **D18: 赛场生存** | 5 | 动态电压跌落、OTSU 自适应阈值、同频干扰、Flash 写保护、重心补偿 |
-| **D19: 防御纵深** | 3 | RCC 时钟关断复位、时钟树注释验算、寄存器级 PWM 硬限幅 |
-| **D20: 急停与赛后诊断** | 3 | 物理急停按钮、黑匣子错误日志、双配置安全回退 |
-
-
----
-📌 适用赛题
-赛题类型	适用度	说明
-🚗 小车类（四轮/麦轮/平衡车/阿克曼）	⭐⭐⭐⭐⭐	原生适配，覆盖运动控制、电机驱动、姿态解算全部环节
-
-🚁 无人机 / 倒立摆 / 风力摆	⭐⭐⭐⭐⭐	姿态解算、PID闭环、IMU数据处理规则完全复用
-
-🔌 电源类（逆变器/DC-DC/充电器）	⭐⭐⭐⭐	PWM死区、软启动、限幅、通信超时规则平移可用，功率保护逻辑直接复用
-
-📊 仪器仪表类（示波器/信号源/分析仪）	⭐⭐⭐⭐	栈溢出防护、DMA双缓冲、晶振配置、ADC采样率精度规则通用
-
-📡 高频/通信类（放大器/收发机）	⭐⭐	按键消抖、I2C/SPI寄存器读写超时可用，其余以模拟硬件为主
-
-## 安装
-
-### 直接复制
-
-```bash
-cp -r embedded-hardware-safety-review ~/.claude/skills/
+```
+╔══════════════════════════════════════════════════════════════╗
+║  EMBEDDED HARDWARE SAFETY REVIEW — AI 代码烧板子审查器        ║
+║  60 项检查 · 20 个维度 · 5000+ 行结构化规则                    ║
+║  实战驱动：每一个规则背后都是一块烧毁的板子或一次比赛失利          ║
+╚══════════════════════════════════════════════════════════════╝
 ```
 
-### 通过 GitHub
+> **AI 写的代码语法正确，但物理上危险。** LLM 不懂电流、电压、热量——它把 GPIO、PWM、PID 当作抽象文本来处理。这个 Skill 在 AI 生成代码之后、**上电之前**，强制执行 60 项物理安全检查。
+
+---
+
+## Why This Exists
+
+| AI 生成的代码 | 物理后果 | Item |
+|-------------|---------|------|
+| `PWM_Frequency = 50` | 电机啸叫 10 分钟 → MOS 管冒烟烧毁 | [#1](references/01-physical-safety.md) |
+| `GPIO_Mode_Out_PP` on encoder | IO 口短路 → 主控锁死 | [#3](references/01-physical-safety.md) |
+| PID 输出无 `constrain()` | 堵转电流 → 驱动芯片炸裂 | [#2](references/01-physical-safety.md) |
+| 无 IWDG 看门狗 | I2C 卡死 → 小车全速冲进人群 | [#10](references/03-logic-exceptions.md) |
+| `asin(x)` 无值域检查 | NaN → 100% 占空比 → 撞墙 | [#13](references/03-logic-exceptions.md) |
+| 无电池电压 ADC | 低压 → MCU 复位 → GPIO 乱跳 → 倒车撞裁判 | [#5](references/01-physical-safety.md) |
+| AI 删除 `HAL_Delay(100)` | 外设未就绪 → 全场比赛随机数据 | [#41](references/14-system-startup.md) |
+
+---
+
+## Architecture
+
+```
+embedded-hardware-safety-review/
+│
+├── SKILL.md                 ← 137 行导航中枢 (Claude 加载入口)
+├── README.md                ← 你正在看的
+├── LICENSE                  ← MIT
+│
+└── references/              ← 22 个模块 (按需渐进式加载)
+    │
+    ├── 01-physical-safety.md         D1:  PWM · 占空比 · 引脚 · 死区 · 电池
+    ├── 02-sensors-algorithms.md      D2:  Yaw · PID · 时间戳 · 编码器
+    ├── 03-logic-exceptions.md        D3:  看门狗 · 上电 · 中断 · NaN
+    ├── 04-power-integrity.md         D5:  反电动势 · 共地干扰 · 舵机
+    ├── 05-bus-deadlock.md            D6:  I2C死锁 · 串口溢出
+    ├── 06-control-strategy.md        D7:  平衡车 · 速度耦合
+    ├── 07-data-debugging.md          D8:  Flash存储 · 日志
+    ├── 08-code-structure.md          D9:  volatile · 类型转换
+    ├── 09-kinematics.md              D10: 麦轮 · 软启动
+    ├── 10-calibration-drift.md       D11: 陀螺漂移 · 置信度
+    ├── 11-cpu-dma.md                 D12: ISR超时 · DMA一致性
+    ├── 12-wireless-modes.md          D13: 心跳 · 无冲击切换
+    ├── 13-state-machine.md           D14: 状态超时 · 按键消抖
+    ├── 14-system-startup.md          D15: 栈溢出 · 晶振 · 延时 · SWD
+    ├── 15-battery-motion.md          D16: 电压前馈 · 俯仰 · 打滑 · 底盘
+    ├── 16-fusion-competition.md      D17: 时间对齐 · 起跑冲线 · 摩擦
+    ├── 17-field-survival.md          D18: 负载检测 · OTSU · 干扰 · Flash · 重心
+    ├── 18-defense-depth.md           D19: RCC复位 · 时钟验算 · 寄存器守卫
+    ├── 19-emergency-postmortem.md    D20: 急停 · 黑匣子 · 双配置
+    ├── output-template.md            审查报告模板
+    ├── quick-reference.md            60项快速检查表
+    └── prompt-prefix.md              AI生成代码前置约束
+```
+
+---
+
+## Quick Start
 
 ```bash
+# 安装到 Claude Code
 git clone https://github.com/016darling610/embedded-hardware-safety-review.git
 cp -r embedded-hardware-safety-review ~/.claude/skills/
+# 重启 Claude Code — Skill 自动注册
 ```
 
-安装后重启 Claude Code，Skill 会自动注册。
-
----
-
-## 使用方式
-
-### 触发条件
-
-Skill 在以下情况下自动激活：
-- 提交嵌入式代码要求安全审查
-- 提到关键词：`嵌入式安全审查`、`电机驱动审查`、`STM32安全`、`PWM安全`、`MPU6050安全`、`姿态解算审查`、`舵机安全`、`平衡车安全`、`麦轮安全`、`竞赛安全`、`封车安全`
-- AI 生成电机控制/传感器融合/状态机代码时主动触发自我审查
-
-### 手动触发
+### 使用
 
 ```
 用 embedded-hardware-safety-review 审查这段代码
 ```
 
-### 输出格式
+触发词：`STM32安全` `PWM安全` `电机驱动审查` `姿态解算审查` `竞赛安全` `封车安全`
 
-- **总体严重级别**（CRITICAL / HIGH / MEDIUM / LOW）
-- **60 项逐项检查结果表格**（✅/❌/⚠️/⏭️）
-- **上电前必须修复的致命问题清单**
-- **需要手动实测验证的项目清单**
-- **完整的修复代码片段**
+### 预防：AI Prompt 前缀
+
+每次让 AI 生成嵌入式代码前，将 [`references/prompt-prefix.md`](references/prompt-prefix.md) 粘贴到 Prompt 开头。46 条约束从源头拦截。
 
 ---
 
-## 条件项说明
+## 维度总览
 
-| 标记 | 触发条件 |
-|------|---------|
-| [SERVO] | 系统包含舵机 |
-| [BALANCE] | 两轮平衡车 |
-| [MECANUM] | 麦轮/全向轮 |
-| [VISION/LINE] | 摄像头/灰度循迹 |
-| [WIRELESS] | 蓝牙/WiFi 遥控 |
-| [CAMERA+IMU] | 摄像头与 IMU 融合 |
-| [COMPETITION] | 竞赛场景 |
-| [ENCODER] | 编码器存在 |
-
-审查时自动跳过不适用的条件项。
+| # | 维度 | Items | 等级 |
+|---|------|-------|:----:|
+| D1 | Physical Safety | 1–5 | 🔴 |
+| D2 | Sensors & Algorithms | 6–9 | 🔴 |
+| D3 | Logic & Exceptions | 10–13 | 🔴 |
+| D5 | Power Integrity | 18–20 | 🟡 |
+| D6 | Bus Deadlock | 21–22 | 🟡 |
+| D7 | Control Limits | 23–24 | 🟡 |
+| D8 | Data & Debugging | 25–26 | 🟢 |
+| D9 | Code Structure | 27–28 | 🟢 |
+| D10 | Kinematics | 29–30 | 🟡 |
+| D11 | Calibration & Drift | 31, 35 | 🟡 |
+| D12 | CPU & DMA | 32, 39 | 🟡 |
+| D13 | Wireless & Modes | 33–34 | 🟡 |
+| D14 | State Machine | 36–37 | 🟡 |
+| D15 | System Startup | 38, 40–42 | 🔴 |
+| D16 | Battery & Motion | 43–46 | 🟡 |
+| D17 | Fusion & Competition | 47–49 | 🟢 |
+| D18 | Field Survival | 50–54 | 🟢 |
+| D19 | Defense-in-Depth | 55–57 | 🟡 |
+| D20 | Emergency & Post-Mortem | 58–60 | 🔴 |
 
 ---
 
-## 实测案例：K 题自动避障小车 (STM32F103C8T6)
+## 条件项
 
-| 指标 | v1 (修复前) | v2 (修复后) |
-|------|------------|------------|
-| CRITICAL | 3 | 0 |
+| 标记 | 条件 |
+|------|------|
+| `[SERVO]` | 舵机 |
+| `[BALANCE]` | 两轮平衡车 |
+| `[MECANUM]` | 麦轮/全向轮 |
+| `[VISION/LINE]` | 摄像头/灰度循迹 |
+| `[WIRELESS]` | 蓝牙/WiFi/NRF24 |
+| `[CAMERA+IMU]` | 摄像头+IMU 融合 |
+| `[COMPETITION]` | 竞赛起跑/冲线 |
+| `[ENCODER]` | 轮式编码器 |
+
+---
+
+## 实测验证
+
+**K题自动避障小车** (STM32F103C8T6 + TB6612FNG + MPU6050):
+
+| | 审查前 | 修复后 |
+|---|:---:|:---:|
+| CRITICAL | 3 | **0** |
 | FAIL | 8 | 16 |
-| PASS | 6 | 18 |
-| 关键修复 | — | IWDG✓ 电池ADC✓ 15kHz PWM✓ 85%限幅✓ NaN防线✓ 积分分离✓ 软启动✓ |
+| PASS | 6 | **18** |
+| 关键修复 | — | IWDG · 电池ADC · 15kHz · 85%限幅 · NaN防线 · 积分分离 · 软启动 |
+
+## 适用赛题
+
+| 赛题 | 适用度 | 说明 |
+|------|:---:|------|
+| 🚗 小车类 | ⭐⭐⭐⭐⭐ | 运动控制/电机/姿态全覆盖 |
+| 🚁 无人机/倒立摆/风力摆 | ⭐⭐⭐⭐⭐ | 姿态/PID/IMU 完全复用 |
+| 🔌 电源类 | ⭐⭐⭐⭐ | 死区/软启动/限幅/超时规则平移 |
+| 📊 仪器仪表类 | ⭐⭐⭐⭐ | 栈/DMA/晶振/ADC 规则通用 |
+| 📡 高频/通信类 | ⭐⭐ | 消抖/I2C/SPI 超时可用 |
 
 ---
 
 ## 贡献
 
-每一项都来自真实的硬件烧毁、比赛失利和深夜调试。欢迎 PR 添加新的检查项。
+每个规则来自真实的硬件烧毁或比赛失利。贡献新规则：
 
-每个检查项需包含：场景描述 → 赛场实锤 → ❌ 错误代码 → ✅ 修复代码 → 验证规则 → 修复动作。
+1. Fork → 2. 按模板添加 → 3. PR
+
+模板：AI盲区 → 物理后果 → ❌错误代码 → ✅正确代码 → 📋验证规则 → 🔧修复动作
 
 ---
 
-## 许可
+MIT © [016darling610](https://github.com/016darling610)
 
-MIT License
+<p align="center"><sub>Built with pain. Tested with fire. Deployed with confidence.</sub></p>
