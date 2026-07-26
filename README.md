@@ -1,4 +1,4 @@
-# Embedded Hardware Safety Review — AI 代码烧板子审查器
+# Embedded Hardware Safety Review 
 
 > **一个为嵌入式 AI 代码生成的 60 项硬件安全审查技能。**
 >
