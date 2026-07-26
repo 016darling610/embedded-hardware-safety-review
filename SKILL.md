@@ -1,137 +1,360 @@
 ---
 name: embedded-hardware-safety-review
 description: >-
-  60-point hardware safety review for AI-generated embedded firmware code (STM32, DC/BLDC motor control, MPU6050 attitude sensing, PID control, servo, balancing robot, encoder, mecanum, Ackermann, I2C/SPI/UART/DMA comms, wireless remote, state machine, camera/vision fusion, competition logic, pre-race lockdown, defense-in-depth, emergency stop, post-mortem). Use this whenever the user submits embedded code for safety review, asks for code review of motor driver / STM32 / MPU6050 / PWM / PID / encoder / servo / I2C / balancing / mecanum / Ackermann / state-machine / competition code, mentions hardware safety concerns (烧毁、冒烟、失控、炸驱动、卡死、飞车、变砖、HardFault、推头、甩尾、冲线误判、虚电猝死、同频干扰、重心偏移、无日志、无法回退), or says keywords like 嵌入式安全审查、电机驱动审查、STM32安全、PWM安全、MPU6050安全、姿态解算审查、舵机安全、平衡车安全、麦轮安全、竞赛安全、封车安全. Also trigger proactively when you generate embedded motor control, sensor fusion, state-machine, or competition-strategy code — review your own output before presenting it to the user. Covers 20 dimensions across 60 items.
+  60-point hardware safety review for AI-generated embedded firmware code. Use this whenever the user submits or generates embedded code involving power actuators (motors/servos), feedback sensors (encoders), inertial measurement units (IMU/MPU6050), closed-loop controllers (PID), or communication buses (I2C/SPI/UART). Triggers on keywords: 嵌入式安全审查, STM32安全, PWM安全, PID审查, 电机驱动, 姿态解算, 竞赛安全. Also trigger proactively when generating embedded code — self-review before output.
 ---
 
-# Embedded Hardware Safety Review — 60-Point Checklist
+# 嵌入式系统代码安全审查规则
 
-## Purpose
+本规则适用于 AI 生成嵌入式固件代码的**全生命周期**——从生成前参数确认、生成中规则约束、到生成后自检输出。
 
-AI-generated embedded code is syntactically correct but **physically dangerous**. LLMs do not understand voltage, current, or thermal dissipation — they treat GPIO configuration, PWM timers, and PID loops as abstract text with no physical consequence. This skill provides a systematic **60-point safety review across 20 dimensions**.
-
-When you apply this skill, you are acting as a **hardware safety auditor**, not a code-style reviewer. Every item must be checked. If an item cannot be verified from the code alone, flag it as **NEEDS MANUAL VERIFICATION** and explain what physical measurement the developer must perform.
-
----
-
-## Review Process
-
-### Step 1 — Identify Scope
-
-Determine which subsystems are present to know which items are applicable:
-
-| Subsystem | Applicable Items |
-|-----------|-----------------|
-| Motor driver (PWM, H-bridge) | 1, 2, 3, 4, 9, 11, 18, 30, 43 |
-| Battery-powered (LiPo 2S/3S/4S) | 5, 19, 43, 50 |
-| MPU6050 / IMU / attitude | 6, 7, 8, 13, 31, 44 |
-| Encoder odometry | 9, 45 |
-| I2C/SPI sensors | 19, 21, 55 |
-| Servo | 20 [conditional] |
-| Two-wheel balancing | 23 [conditional] |
-| UART/Bluetooth/WiFi | 22, 26, 33, 52 |
-| Line-following / vision | 24, 35, 51 |
-| Mecanum / omni / swerve | 29, 46 [conditional] |
-| Ackermann | 46 [conditional] |
-| DMA-based ADC/sensor | 32, 39 |
-| Camera + IMU fusion | 47 [conditional] |
-| Competition start/finish | 48, 49 [conditional] |
-| Wireless remote | 33, 52 [conditional] |
-| Encoder present | 9, 45 [conditional] |
-| Flash storage for params | 25, 53, 60 |
-| Full system | 10, 11, 12, 13, 27, 28, 36, 37, 38, 40, 41, 42, 54, 56, 57, 58, 59 |
-
-### Step 2 — Read the Relevant Modules
-
-For each applicable item, read the corresponding reference file in `references/`. Each file contains:
-- ❌ What AI commonly gets wrong
-- ✅ The correct implementation with code examples
-- 📋 Verification rules (what to check, line by line)
-- 🔧 Corrective action if the item fails
-
-### Step 3 — Produce the Report
-
-After checking all applicable items, output a structured report using the template in [`references/output-template.md`](references/output-template.md). Rate overall severity as **CRITICAL / HIGH / MEDIUM / LOW**.
+**核心理念**：AI 写的代码语法正确但物理上危险。LLM 不理解电压、电流、时序——它将寄存器操作视为抽象文本。本规则体系在代码到达物理硬件之前设置三层防线。
 
 ---
 
-## Dimension Map
+## 一、规则优先级体系
 
-| # | Dimension | Items | Reference |
-|---|-----------|-------|-----------|
-| D1 | Hardware Physical Safety | 1–5 | [`01-physical-safety.md`](references/01-physical-safety.md) |
-| D2 | Sensors & Attitude Algorithms | 6–9 | [`02-sensors-algorithms.md`](references/02-sensors-algorithms.md) |
-| D3 | Logic Flow & Exception Reset | 10–13 | [`03-logic-exceptions.md`](references/03-logic-exceptions.md) |
-| D4 | ⏳ RESERVED | 14–17 | — |
-| D5 | Power & Electrical Integrity | 18–20 | [`04-power-integrity.md`](references/04-power-integrity.md) |
-| D6 | Communication Bus Deadlock | 21–22 | [`05-bus-deadlock.md`](references/05-bus-deadlock.md) |
-| D7 | Control Strategy & Physical Limits | 23–24 | [`06-control-strategy.md`](references/06-control-strategy.md) |
-| D8 | Data Persistence & Debugging | 25–26 | [`07-data-debugging.md`](references/07-data-debugging.md) |
-| D9 | Code Structural Traps | 27–28 | [`08-code-structure.md`](references/08-code-structure.md) |
-| D10 | Kinematics & Motion Smoothing | 29–30 | [`09-kinematics.md`](references/09-kinematics.md) |
-| D11 | Sensor Calibration & Drift | 31, 35 | [`10-calibration-drift.md`](references/10-calibration-drift.md) |
-| D12 | Real-Time CPU & DMA Integrity | 32, 39 | [`11-cpu-dma.md`](references/11-cpu-dma.md) |
-| D13 | Wireless Control & Mode Transition | 33–34 | [`12-wireless-modes.md`](references/12-wireless-modes.md) |
-| D14 | State Machine & Input Robustness | 36–37 | [`13-state-machine.md`](references/13-state-machine.md) |
-| D15 | System Startup & Debug Integrity | 38, 40–42 | [`14-system-startup.md`](references/14-system-startup.md) |
-| D16 | Battery-Aware Control & Motion | 43–46 | [`15-battery-motion.md`](references/15-battery-motion.md) |
-| D17 | Multi-Sensor Fusion & Competition | 47–49 | [`16-fusion-competition.md`](references/16-fusion-competition.md) |
-| D18 | Competition Field Survival | 50–54 | [`17-field-survival.md`](references/17-field-survival.md) |
-| D19 | Defense-in-Depth Hardware Guards | 55–57 | [`18-defense-depth.md`](references/18-defense-depth.md) |
-| D20 | Emergency Stop & Post-Mortem | 58–60 | [`19-emergency-postmortem.md`](references/19-emergency-postmortem.md) |
-
----
-
-## Templates & Tools
-
-| Resource | File |
-|----------|------|
-| Report output template | [`references/output-template.md`](references/output-template.md) |
-| 60-item quick reference | [`references/quick-reference.md`](references/quick-reference.md) |
-| AI prompt prefix (copy-paste before generating code) | [`references/prompt-prefix.md`](references/prompt-prefix.md) |
-
----
-
-## Conditional Item Tags
-
-Items marked with these tags are checked only when the corresponding hardware is present:
-
-| Tag | Condition |
-|-----|-----------|
-| `[SERVO]` | System includes servo motors |
-| `[BALANCE]` | Two-wheel self-balancing robot |
-| `[MECANUM]` | Mecanum / omni / swerve drive |
-| `[VISION/LINE]` | Camera or grayscale line tracking |
-| `[WIRELESS]` | Bluetooth / WiFi / NRF24 remote control |
-| `[CAMERA+IMU]` | Fusing camera with IMU data |
-| `[COMPETITION]` | Competition with start/finish lines |
-| `[ENCODER]` | Wheel encoders present |
-
-Items without tags apply to all projects.
-
----
-
-## Output Format
-
-Use the template in [`references/output-template.md`](references/output-template.md). The report must include:
-
-1. **Header** — project name, MCU model, date
-2. **Overall Severity** — CRITICAL / HIGH / MEDIUM / LOW
-3. **Dimension tables** — one row per item: check name, result (✅/❌/⚠️/⏭️), finding
-4. **CRITICAL FIXES REQUIRED** — numbered list with file:line, exact fix, physical consequence
-5. **NEEDS MANUAL VERIFICATION** — measurement procedure, required tool, acceptable range
-6. **CORRECTIVE CODE SNIPPETS** — complete replacement code for each FAIL item
-
----
-
-## Quick Start
-
-**To review a project:**
+所有规则按后果严重度分为三级。当两条规则在特定场景下冲突时，**严格按优先级裁决**。
 
 ```
-用 embedded-hardware-safety-review 审查这段代码
+P0 > P1 > P2  (高优先级无条件覆盖低优先级)
+同级冲突: 安全规则 > 性能规则
+同级仍冲突: 编号小的规则优先
 ```
 
-**To prevent issues before AI generates code**, copy the entire contents of [`references/prompt-prefix.md`](references/prompt-prefix.md) into your AI prompt as a system prefix.
+| 级别 | 名称 | 定义 | 违反后果 | 冲突裁决 |
+|:----:|------|------|---------|---------|
+| **P0** | 铁律 | 不遵守将导致硬件永久损坏、人员受伤、或平台彻底失控 | 驱动芯片炸裂、储能电源起火、平台全速撞击 | **无条件优先**。任何 P1/P2 规则与之冲突时，P0 胜出。即使影响功能实现，也要先满足 P0 |
+| **P1** | 硬约束 | 不遵守将导致任务失败、数据全损、或平台行为不可预测 | 闭环发散、通信死锁、启动误触发、参数丢失 | P0 优先。P1 之间冲突时，选保护范围更广的。覆盖 P2 |
+| **P2** | 规范 | 不遵守将降低可靠性、增加调试难度、或影响长期维护 | 日志缺失、类型隐患、无自适应、参数不便调 | P0/P1 优先。鼓励全部遵守但不强制阻断输出 |
 
-**To quickly audit your own code**, use the checklist in [`references/quick-reference.md`](references/quick-reference.md).
+**裁决示例**：
+- P0"急停后立即断电" vs P1"断电前先记录错误日志" → **P0 胜出**。先断电保安全，日志可通过其他方式事后获取。
+- P1"闭环输出必须限幅" vs P2"限幅值应可配置" → **P1 胜出**。先保证有限幅，配置化是锦上添花。
+- P1"通信超时后应硬件复位外设" vs P1"超时后应先重试 3 次" → **不冲突**。这是同一个 SOP 的两个步骤，按顺序执行。
+
+---
+
+## 二、用户前置参数声明区
+
+AI 生成任何嵌入式代码前，**必须确认以下 4 个参数已被用户提供**。如果用户未提供，AI 必须**主动询问**后再生成代码。严禁用默认值猜测。
+
+| 参数 | 说明 | 典型值示例 | 缺失时 |
+|------|------|----------|--------|
+| `HSE_FREQ` | 外部晶振频率 | 8MHz / 12MHz / 25MHz | ⛔ 禁止推算分频系数 |
+| `PWM_FREQ` | 功率执行器 PWM 载波频率 | 直流电机: 10k–20kHz, 舵机: 50Hz | ⛔ 禁止写定时器配置 |
+| `DUTY_MAX` | 最大允许占空比 | 直流电机: 85%, 舵机: 100% | ⛔ 禁止写输出限幅 |
+| `BUS_TIMEOUT` | I2C/SPI 超时时间 | 传感器: 10ms, 存储: 50ms | ⛔ 禁止写通信超时值 |
+
+**附加规则**：
+- 如果用户声明了主控型号，AI 应通过 datasheet 验证 HSE_FREQ 与主控默认值的匹配性
+- 如果定时器时钟来源于 PLL 分频，AI 必须显式写出分频链推导并在注释中验算目标频率是否为整数
+- 占空比上限永远不能为 100%（留至少 10% 给储能电源电压波动）
+- 如果用户的平台类型使上述某个参数不适用（如纯传感器板无 PWM），明确声明跳过该参数
+
+---
+
+## 三、P0 级铁律
+
+> 违反任何一条 → 立即停止生成，修正后重来。不可被任何其他规则覆盖。
+
+### P0-1 功率执行器必须有限幅
+
+所有通往功率执行器（如直流电机、舵机、加热器）的输出值，在执行器驱动函数内部、物理寄存器写入之前的同一函数内，**必须有内联硬编码的上下限比较**。不依赖宏定义、不依赖调用者保证。
+
+```
+规则: 驱动函数内 → if(out > MAX) out = MAX; if(out < -MAX) out = -MAX; → 再写寄存器
+冲突: 性能优化要求去掉 if 以减少指令 → P0 胜出，保留限幅
+```
+
+### P0-2 储能电源必须监测
+
+所有便携式平台必须通过模拟采集通道（如 ADC）持续监测储能电源（如锂电池、超级电容）电压。低于预设阈值时，仅允许关闭所有功率执行器并进入不可自恢复的报警状态。
+
+```
+规则: 每个控制周期采样 → 低于阈值 → 禁止使能 → 报警 → 不复位不清除
+冲突: 低电时任务未完成想继续跑 → P0 胜出，保护储能电源不深度放电
+```
+
+### P0-3 安全状态必须硬件默认
+
+功率执行器使能引脚的默认电平（上电瞬间、主控复位期间、主控引脚未初始化时）必须为"禁用"状态。依赖外部下拉/上拉电阻保证主控不可控时执行器不会意外启动。
+
+```
+规则: 使能脚硬件默认 = 禁用 → 主控初始化后显式拉高使能
+冲突: 为省 BOM 去掉外部电阻 → P0 胜出，必须保留硬件默认状态
+```
+
+### P0-4 必须存在独立看门狗
+
+所有运行闭环控制或自主决策的平台，必须使能硬件独立看门狗（使用独立时钟源，不依赖系统时钟）。喂狗操作仅允许出现在主循环的末尾。中断服务函数内严禁喂狗。
+
+```
+规则: 主循环末尾 → 喂狗。ISR 内 → 禁止喂狗。看门狗时钟 ≠ 系统时钟
+冲突: 长耗时初始化函数需要更多时间 → 可在初始化完成后启动看门狗，而非完全不用
+```
+
+### P0-5 急停输入必须最高优先级且最小操作
+
+如果平台有物理急停输入（按键、开关），其对应的外部中断必须配置为最高抢占优先级。中断服务函数内只做三件事：(1)所有功率执行器输出寄存器清零，(2)使能引脚拉低，(3)置急停标志位。不做其他任何操作。
+
+```
+规则: 急停 ISR → 清 PWM → 拉 EN → 置标志 → 退出。不调函数、不延时、不喂狗
+冲突: 想在急停前保存状态 → P0 胜出，先断电再考虑保存
+```
+
+### P0-6 禁止复用调试接口
+
+在调试/开发阶段，主控的调试接口引脚（如 ARM Cortex 的 SWDIO/SWCLK）严禁被配置为普通 GPIO 功能。仅在生产固化阶段允许通过条件编译宏选择性释放这些引脚。
+
+```
+规则: 开发阶段 → PA13/PA14 仅作 SWD → 不写入 GPIO 配置
+冲突: 缺少 GPIO 想复用调试口 → P0 胜出，宁可少功能也不能变砖
+```
+
+---
+
+## 四、P1 级硬约束
+
+> 必须遵守。P0 优先于 P1。
+
+### P1-1 闭环控制器输出路径有三重保护
+
+闭环控制器（如 PID）的输出，在到达功率执行器之前必须经过三层检查：
+
+```
+第1层: 控制器内部 — 积分项限幅 + 积分分离（误差 > 阈值时停止累加）
+第2层: 控制器出口 — 总输出值域检查（isnan/isinf → 清零输出）
+第3层: 执行器入口 — 硬编码上下限比较（P0-1，同一函数内、寄存器写之前）
+```
+
+### P1-2 反馈传感器数据不可盲信
+
+反馈传感器（如编码器、IMU、霍尔传感器）的原始数据在送入闭环控制器之前，必须通过合理性检查。检查方法取决于传感器类型，但至少包含：量程检查（值是否在物理可能范围内）、跳变检查（相邻两次差值是否超过物理极限）。
+
+```
+规则: 传感器数据 → 量程检查 → 跳变检查 → 通过才送入控制闭环。不通过则用上次有效值或进入降级模式。
+```
+
+### P1-3 通信失败不能阻塞主循环
+
+I2C/SPI 通信必须设置超时时间（由 BUS_TIMEOUT 参数指定）。超时后不能仅返回错误码，必须执行标准救援流程。通信重试期间主循环必须继续运行——使用上次有效数据驱动控制，同时标记数据为"陈旧"状态。
+
+```
+规则: 通信超时 → 救援流程 → 重试中主循环不阻塞 → 标记数据陈旧 → 降级控制
+```
+
+### P1-4 状态机每个状态必须有超时出口
+
+每一个状态（包括等待传感器数据、等待机械动作完成、等待外部指令）必须设置最长驻留时间。超时后强制跳转到安全状态（而非下一个正常状态），并记录超时来源。
+
+```
+规则: 状态进入 → 重置计时器 → 超时 → STATE_SAFE（非 STATE_NEXT）→ 记录来源
+```
+
+### P1-5 上电顺序不可颠倒
+
+功率执行器的初始化必须严格按以下顺序：(1)配置控制引脚为安全电平，(2)初始化 PWM/控制外设并设输出为零，(3)延时等待硬件稳定，(4)最后一步才拉高使能引脚。
+
+```
+规则: 引脚安全 → PWM=0% → 延时 → 使能。顺序不可颠倒。
+```
+
+### P1-6 储能电源电压前馈补偿
+
+功率执行器的输出指令不能直接用百分比映射到物理输出。必须以目标物理量（转速、力矩、位置）为闭环目标，通过储能电压前馈将控制器输出转换为物理 PWM 值：`物理PWM = 控制器输出 × (额定电压 / 当前电压)`，前馈增益上限锁死在 1.5 倍。
+
+```
+规则: 闭环目标 = 物理量 → PWM = 输出 × (V_nom / V_now) → 增益 ≤ 1.5×
+```
+
+---
+
+## 五、P2 级规范
+
+> 建议遵守。P0/P1 优先于 P2。鼓励全部满足但不强制阻断输出。
+
+### P2-1 关键参数应有持久化存储
+
+闭环控制器的参数（增益、限幅值、校准值）应存储在非易失存储器中，带校验码（如 CRC32）。运行时修改仅作用于 RAM，持久化写入仅在全系统停机且用户显式确认后执行。
+
+### P2-2 应有运行错误日志
+
+在 RAM 中预留环形错误缓冲区（建议 ≥ 16 条），记录异常发生时的系统时钟、错误码、当前状态。赛后通过板载指示灯闪烁回放错误码序列（不需要串口连接）。
+
+### P2-3 应支持双配置安全回退
+
+非易失存储器中应存储两套参数——一套出厂保守版（已实测验证）、一套用户调优版。启动时通过硬件引脚电平选择加载哪一套。保守版参数必须经过全流程实测验证。
+
+### P2-4 信号处理应数学安全
+
+所有涉及反三角函数（如 asin/acos）、平方根、除法的运算，输入操作数必须在函数调用前被显式限幅到合法域内。闭环控制器输出在写入物理寄存器前必须通过 isnan/isinf 检查。
+
+### P2-5 应中断安全
+
+所有在中断服务函数中写入、在主循环中读取的全局变量必须声明为 volatile。所有参与浮点运算的整数类型变量必须显式强制转换为浮点类型后再运算。浮点转整赋值前必须值域限幅。
+
+### P2-6 启动时应有验证
+
+每个外设初始化完成后，应读取其识别寄存器（如 WHO_AM_I）验证通信正常。验证失败则重试 3 次，仍失败则进入安全模式——不加载依赖该外设的功能，并在报警中指示故障外设。
+
+### P2-7 应有参数自适应
+
+应在线辨识运行环境特征（如路面摩擦系数、储能电源内阻），并据此调整闭环控制器增益。环境辨识可通过施加已知测试信号、测量响应时间来实现，在任务开始前的预备阶段自动完成。
+
+### P2-8 多传感器应有时间对齐
+
+如果融合多个异构传感器（如摄像头与 IMU），所有数据必须携带采集时刻的时间戳。融合前，将不同传感器的数据通过时间戳对齐到同一时刻（惯导数据通过角速率积分外推或回退到参考传感器的时间点）。
+
+---
+
+## 六、异常处理标准救援流程
+
+以下三个流程定义了特定异常发生时的**固定操作序列**。AI 生成异常处理代码时，必须严格按序列执行，不可跳过或重组步骤。
+
+### 6.1 I2C/SPI 通信超时救援
+
+```
+触发条件: 通信超时计数 ≥ 重试阈值 (默认 3)
+目标: 物理层打断外设卡死状态，恢复通信能力
+```
+
+| 步骤 | 操作 | 耗时 | 说明 |
+|:----:|------|:----:|------|
+| 1 | 标记当前传感器数据为"陈旧" | 0 | 主循环继续用旧数据驱动的闭环，不阻塞 |
+| 2 | 关闭该外设的总线时钟 (RCC) | 0 | 门控时钟断开，外设进入复位态 |
+| 3 | 等待 | 10ms | 确保外设内部状态机完全放电 |
+| 4 | 重新开启总线时钟 | 0 | 恢复外设时钟供给 |
+| 5 | 完整重新初始化外设寄存器 | ~1ms | 从复位态重新配置，不是部分配置 |
+| 6 | 重新初始化对应的 GPIO 引脚 | 0 | 确保引脚模式（OD/PP/上拉）正确 |
+| 7 | 总线恢复: 发 9 个 SCL 脉冲 (I2C) 或拉高 CS≥1ms (SPI) | 1ms | 释放可能被从设备拉低的信号线 |
+| 8 | 发起测试通信 (读 WHO_AM_I) | ~1ms | 验证通信恢复 |
+| 9a | 测试通过 → 清除陈旧标记，恢复正常读取 | — | 救援成功 |
+| 9b | 测试失败 → 累计失败次数。≥5 次 → 尝试断电复位 (如硬件支持) | — | 升escalation |
+
+---
+
+### 6.2 闭环控制器输出异常救援
+
+```
+触发条件: 闭环控制器输出 isnan()=true 或 isinf()=true 或 输出跳变 > 预设阈值
+目标: 阻止异常值进入功率执行器，安全降级
+```
+
+| 步骤 | 操作 | 说明 |
+|:----:|------|------|
+| 1 | 立即冻结本次输出——不写入功率执行器寄存器 | 最后一道防线，在寄存器写之前的 if 守卫触发 |
+| 2 | 清零该控制器的积分累加器 | 防止异常值已污染积分项，恢复后积分从零开始 |
+| 3 | 将本次输出替换为上次有效输出（或零） | 零是安全值——执行器不应在故障时维持推力 |
+| 4 | 触发降级模式：将控制模式从"闭环"切换为"开环安全值" | 开环安全值 = 预设的低功率直行/悬停/空挡指令 |
+| 5 | 记录异常：时间戳 + 异常类型 + 异常发生时的控制器输入值 | 写入 RAM 错误日志（P2-2） |
+| 6 | 保持降级模式至少 100ms，然后尝试恢复闭环 | 防止反复振荡 |
+| 7 | 如果 3 秒内连续触发 ≥ 3 次 → 永久降级并触发平台急停 | 说明传感器或控制器已不可恢复 |
+
+---
+
+### 6.3 看门狗复位后恢复
+
+```
+触发条件: 启动时检测到复位源为 IWDG (读 RCC 控制状态寄存器)
+目标: 记录复位原因，以最安全的参数恢复运行
+```
+
+| 步骤 | 操作 | 说明 |
+|:----:|------|------|
+| 1 | 读取并保存复位源寄存器值，然后清除复位标志 | 不保存的话，清零后就无法知道是看门狗复位了 |
+| 2 | 将复位源写入 RAM 错误日志的特定槽位 | 如果日志在非初始化 RAM 段，跨复位保留 |
+| 3 | 检查硬件安全模式引脚 (P2-3)：若为安全模式 → 加载出厂保守参数 | 物理引脚状态在复位后不变 |
+| 4 | 硬件引脚非安全模式时: 加载上次正常保存的用户参数，但将闭环增益降至标称值的 50% | 降额运行，防止参数本身是导致复位的根源 |
+| 5 | 通过指示灯闪烁复位原因码 (二进制) 至少 3 个完整循环 | 人类可观察到的错误信号 |
+| 6 | 延时 2 秒后才允许使能功率执行器 | 给操作者观察错误码的时间 |
+| 7 | 进入任务时: 比正常模式多执行 3 秒的静止姿态校准 | 补偿复位期间可能发生的姿态漂移 |
+
+---
+
+## 七、代码输出前强制自检清单
+
+AI 生成嵌入式代码后、向用户输出前，**必须逐条核对以下检查点**。所有适用项通过才可输出。不适用的项标注"N/A"并简述原因。任一项不通过→修正后重新自检。
+
+### 7.1 功率与安全自检
+
+```
+[ ] P0 功率执行器有限幅: 每个功率输出函数内、寄存器写之前有内联 if 硬限幅?       (P0-1)
+[ ] P0 储能电源有监测: ADC 通道 + 低压阈值 + 报警 + 不可自恢复?                    (P0-2)
+[ ] P0 硬件默认安全: 使能引脚默认低电平? 外部有下拉电阻?                          (P0-3)
+[ ] P0 独立看门狗: 已使能? 主循环末尾喂狗? ISR 内不喂狗?                          (P0-4)
+[ ] P0 急停(如存在): EXTI 最高优先级? ISR 内只清 PWM+拉 EN+置标志?                (P0-5)
+[ ] P0 调试接口: PA13/PA14 未被配置为 GPIO?                                       (P0-6)
+```
+
+### 7.2 控制器与传感器自检
+
+```
+[ ] P1 闭环三重保护: 积分限幅+积分分离 → 输出 NaN 检查 → 执行器入口硬限幅?        (P1-1)
+[ ] P1 反馈传感器检查: 量程检查? 跳变检查? 失败有降级策略?                        (P1-2)
+[ ] P1 通信超时: 超时时间从 BUS_TIMEOUT 参数来? 超时后执行救援流程?               (P1-3)
+[ ] P1 状态机超时: 每个状态有最大驻留时间? 超时→安全状态?                         (P1-4)
+[ ] P1 上电顺序: 安全电平 → PWM=0 → 延时 → 使能?                                  (P1-5)
+[ ] P1 电压前馈: PWM = 输出 × V_nom/V_now? 增益 ≤ 1.5?                            (P1-6)
+```
+
+### 7.3 代码质量自检
+
+```
+[ ] P2 信号数学: asin 输入限幅[-1,1]? sqrt 输入 ≥ 0? 除法分母非零?                 (P2-4)
+[ ] P2 中断安全: ISR 共享变量 volatile? 整数升格为浮点后才参与浮点运算?            (P2-5)
+[ ] P2 外设验证: WHO_AM_I 读取 + 重试 3 次 + 失败降级?                             (P2-6)
+[ ] P2 时间对齐(多传感器时): 数据带时间戳? 融合前对齐?                              (P2-8)
+```
+
+### 7.4 参数完整性自检
+
+```
+[ ] 用户前置参数: HSE_FREQ? PWM_FREQ? DUTY_MAX? BUS_TIMEOUT? 4个全有?
+      缺失时 → 已主动询问用户 → 获得明确数值后才生成代码
+[ ] 时钟树: 所有分频系数有注释验算? 目标频率为整数?
+[ ] 所有硬编码数值有来源注释? (来自 datasheet / 来自测量 / 来自用户参数)
+```
+
+### 7.5 输出最终确认
+
+```
+[ ] 所有适用项通过或 N/A → 允许输出
+[ ] 任一 P0 项不通过 → 禁止输出，修正后重新开始本清单
+[ ] 任一 P1 项不通过 → 禁止输出，修正后重新开始本清单
+[ ] 仅 P2 项不通过 → 允许输出但在代码注释中标注未实现的 P2 项
+```
+
+---
+
+## 附录 A：术语抽象化映射表
+
+AI 生成规则文本和代码注释时，使用左列抽象术语。典型实例用括号标注。
+
+| 抽象术语 | 典型实例 |
+|---------|---------|
+| 受控平台 | 小车、无人机、倒立摆、平衡车、机械臂 |
+| 功率执行器 | 直流电机、无刷电机、舵机、电磁阀、加热器 |
+| 反馈传感器 | 编码器、霍尔传感器、电位器、光栅尺 |
+| 惯性测量单元 (IMU) | MPU6050、ICM-20948、BMI160 |
+| 闭环控制器 | PID 控制器、LQR 控制器、ADRC 控制器 |
+| 储能电源 | 锂电池 (2S/3S/4S)、超级电容、镍氢电池组 |
+| 通信总线 | I2C、SPI、UART、CAN |
+| 主控 | STM32、ESP32、GD32、ATmega |
+| 调试接口 | SWD (ARM Cortex)、JTAG、ISP |
+| 非易失存储器 | 内部 Flash、外部 EEPROM (AT24C02)、FRAM |
+| 反馈异常 | 编码器空转（车轮打滑）、传感器失准、信号干扰 |
+| 执行器驱动 | 电机驱动 IC (TB6612、DRV8833、L298N)、MOSFET H 桥 |
+
+## 附录 B：规则冲突裁决速查表
+
+| 场景 | 规则 A | 规则 B | 裁决 | 理由 |
+|------|--------|--------|:----:|------|
+| 急停 vs 日志 | P0-5 急停不调函数 | P2-2 记录错误日志 | **P0-5** | 人身安全 > 诊断 |
+| 限幅 vs 优化 | P0-1 硬编码限幅 | P2-5 减少分支指令 | **P0-1** | 硬件安全 > 执行效率 |
+| 断电 vs 保存 | P0-2 低电禁止使能 | P2-1 参数持久化保存 | **P0-2** | 电池保护 > 参数保存 |
+| 停止 vs 完成 | P1-4 超时→安全状态 | 业务逻辑: 超时→STOP | **P1-4** | 安全状态 ≠ 业务 STOP，以安全为准 |
+| 重试 vs 复位 | P1-3 先重试 3 次 | P1-3 超时后硬件复位 | **不冲突** | 同一 SOP 的顺序步骤 |
+| 降额 vs 性能 | P1-6 前馈增益 ≤ 1.5 | 竞速需求: 最大功率输出 | **P1-6** | 1.5× 已是上限，超过则储能崩溃 |
+
+重要: 此表仅列已知冲突。遇到表中未列出的冲突时，严格按 P0 > P1 > P2 裁决，同级时选择更保守(更安全)的规则。

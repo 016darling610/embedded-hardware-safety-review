@@ -1,5 +1,6 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Claude%20Code-Skill-8A2BE2?style=for-the-badge&logo=anthropic&logoColor=white">
+  <img src="https://img.shields.io/badge/Policy-P0%2FP1%2FP2-black?style=for-the-badge" alt="P0/P1/P2">
   <img src="https://img.shields.io/badge/Items-60-red?style=for-the-badge">
   <img src="https://img.shields.io/badge/Dimensions-20-blue?style=for-the-badge">
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge">
@@ -23,12 +24,26 @@
 ```
 ╔══════════════════════════════════════════════════════════════╗
 ║  EMBEDDED HARDWARE SAFETY REVIEW — AI 代码烧板子审查器        ║
-║  60 项检查 · 20 个维度 · 5000+ 行结构化规则                    ║
+║  60 项检查 · 20 个维度 · P0/P1/P2 三级优先级                  ║
 ║  实战驱动：每一个规则背后都是一块烧毁的板子或一次比赛失利          ║
 ╚══════════════════════════════════════════════════════════════╝
 ```
 
 > **AI 写的代码语法正确，但物理上危险。** LLM 不懂电流、电压、热量——它把 GPIO、PWM、PID 当作抽象文本来处理。这个 Skill 在 AI 生成代码之后、**上电之前**，强制执行 60 项物理安全检查。
+
+---
+
+## v3: Priority System
+
+规则不再平铺直叙。**P0 > P1 > P2**，冲突时自动裁决。
+
+| 级别 | 名称 | 后果 | 输出阻断 |
+|:----:|------|------|:----:|
+| **P0** | 铁律 | 硬件烧毁 / 人员受伤 / 平台失控 | ⛔ 禁止输出 |
+| **P1** | 硬约束 | 任务失败 / 数据全损 / 行为不可预测 | ⛔ 禁止输出 |
+| **P2** | 规范 | 可靠性下降 / 调试困难 | ⚠️ 允许输出但标注 |
+
+**代码生成后 → 逐条自检 → P0/P1 不过→修正→重检→全部通过才输出。**
 
 ---
 
